@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 
 import axios from "axios";
 import setAxiosHeaders from "./AxiosHeaders";
+import _ from "lodash";
 
 class TodoItem extends React.Component {
   constructor(props) {
@@ -10,9 +11,38 @@ class TodoItem extends React.Component {
     this.state = {
       complete: this.props.todoItem.complete,
     };
+    this.handleChange = this.handleChange.bind(this);
+    this.updateTodoItem = this.updateTodoItem.bind(this);
+    this.inputRef = React.createRef();
+    this.completedRef = React.createRef();
+
     this.handleDestroy = this.handleDestroy.bind(this);
     this.path = `/api/v1/todo_items/${this.props.todoItem.id}`
   }
+
+  handleChange() {
+    this.setState({
+      complete: this.completedRef.current.checked
+    });
+    this.updateTodoItem();
+  }
+
+  updateTodoItem = _.debounce(() => {
+    setAxiosHeaders();
+    axios
+      .put(this.path, {
+        todo_item: {
+          title: this.inputRef.current.value,
+          complete: this.completedRef.current.checked
+        }
+      })
+      .then(response => {
+        this.props.clearErrors()
+      })
+      .catch(error => {
+        this.props.handleErrors(error)
+      })
+  }, 1000);
 
   handleDestroy() {
     setAxiosHeaders()
@@ -32,7 +62,8 @@ class TodoItem extends React.Component {
   render() {
     const { todoItem } = this.props
     return (
-      <tr className={`${this.state.complete ? 'table-light' : ''}`}>
+      <tr className={`${ this.state.complete && this.props.hideCompletedTodoItems ? 'd-none' : "" } ${this.state.complete ? 'table-light' : ''}`}>
+
         <td>
           <svg
             className={`bi bi-check-circle ${
@@ -61,6 +92,8 @@ class TodoItem extends React.Component {
             type="text"
             defaultValue={todoItem.title}
             disabled={this.state.complete}
+            onChange={this.handleChange}
+            ref={this.inputRef }
             className="form-control"
             id={`todoItem__title-${todoItem.id}`}
           />
@@ -72,6 +105,8 @@ class TodoItem extends React.Component {
               defaultChecked={this.state.complete}
               type="checkbox"
               className="form-check-input"
+              ref={this.completedRef }
+              onChange={this.handleChange}
               id={`complete-${todoItem.id}`}
             />
             <label
@@ -92,5 +127,8 @@ export default TodoItem
 
 TodoItem.propTypes = {
   todoItem: PropTypes.object.isRequired,
-  getTodoItems: PropTypes.func.isRequired
+  getTodoItems: PropTypes.func.isRequired,
+  hideCompletedTodoItems: PropTypes.bool.isRequired,
+  clearErrors: PropTypes.func.isRequired,
+  handleErrors: PropTypes.func.isRequired,
 }
